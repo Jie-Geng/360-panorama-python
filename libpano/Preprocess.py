@@ -10,7 +10,8 @@ from libpano import utils
 from libpano import Config
 
 
-def preprocess_resize(image_folder, temp_folder, meta_data, scale):
+def preprocess_resize(image_folder, temp_folder, meta, scale):
+    meta_data = meta.grid_data
     # rows = meta_data.row.nunique()
     cols = meta_data.col.nunique()
 
@@ -38,7 +39,9 @@ def process_resize(args):
     del img
 
 
-def preprocess_frames(image_folder, meta_data, metrics):
+def preprocess_frames(image_folder, meta):
+    meta_data = meta.grid_data
+    metrics = meta.metrics
     # rows = meta_data.row.nunique()
     cols = meta_data.col.nunique()
 

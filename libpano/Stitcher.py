@@ -9,10 +9,10 @@ from libpano import ImageFrame
 
 class Stitcher:
 
-    def __init__(self, folder, meta, metrics):
+    def __init__(self, folder, meta):
         self.folder = folder
-        self.meta = meta
-        self.metrics = metrics
+        self.meta = meta.grid_data
+        self.metrics = meta.metrics
 
         self.blender = cv.detail_MultiBandBlender()
         self.seam_finder = cv.detail_GraphCutSeamFinder("COST_COLOR")

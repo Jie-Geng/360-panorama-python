@@ -12,19 +12,21 @@ parser = argparse.ArgumentParser(prog='start.py', description='my panorama stitc
 parser.add_argument('folder', nargs='+', help='folder containing files to stitch', type=str)
 parser.add_argument('--width', help='Width of the output panorama', type=int, dest='width')
 parser.add_argument('--height', help='Height of the output panorama', type=int, dest='height')
-parser.add_argument('--output_file', default='output.jpg', help='File name of the output file.', type=str,
-                    dest='output_file')
+parser.add_argument('--output', default='output.jpg', help='File name of the output file.', type=str,
+                    dest='output')
 
 __doc__ = '\n' + parser.format_help()
 
 
 def main():
+    all_timer = utils.Timer()
     timer = utils.Timer()
+
     args = parser.parse_args()
     base_folder = args.folder[0]
     pano_width = args.width
     pano_height = args.height
-    output_fn = args.output_file
+    output_fn = args.output
 
     meta = MetaData.MetaData(base_folder)
     if Config.verbose:
@@ -40,7 +42,6 @@ def main():
         os.mkdir(temp_folder)
     except OSError:
         print('Creation of temp directory failed')
-        exit(1)
     else:
         if Config.verbose:
             print('temp directory was created.')
@@ -51,26 +52,49 @@ def main():
 
     # resize images
     # comment for dev
-    print('Resizing images...')
+    if Config.verbose:
+        timer.begin()
+        print('Resizing images...')
+
     Preprocess.preprocess_resize(base_folder, temp_folder, meta, scale)
+
+    if Config.verbose:
+        print('Finished in {:.2f} seconds'.format(timer.end()))
 
     # recalculate the metrics as the image size has changed
     meta.load_panorama_metrics(temp_folder)
 
     # transform images
-    print('Transforming images...')
+    if Config.verbose:
+        timer.begin()
+        print('Transforming images...')
+
     Preprocess.preprocess_frames(temp_folder, meta)
 
-    print('Positioning images...')
+    if Config.verbose:
+        print('Finished in {:.2f} seconds'.format(timer.end()))
+
+    # begin stitching
+    if Config.verbose:
+        timer.begin()
+        print('Positioning images...')
+
     stitcher = Stitcher.Stitcher(temp_folder, meta)
-
-    print('Blending images...')
     stitcher.load_frames()
-    output = stitcher.blend_frames()
 
+    if Config.verbose:
+        print('Finished in {:.2f} seconds'.format(timer.end()))
+
+    # blending images
+    if Config.verbose:
+        timer.begin()
+        print('Blending images...')
+
+    output = stitcher.blend_frames()
     cv.imwrite(output_fn, output)
 
-    print('Done in {:.2f} seconds.'.format(timer.end()))
+    if Config.verbose:
+        print('Finished in {:.2f} seconds'.format(timer.end()))
 
     # delete of temp directory
     try:
@@ -79,6 +103,8 @@ def main():
         print('Deletion of temp directory failed')
     else:
         print('temp directory was deleted.')
+
+    print('\nDone in {:.2f} seconds'.format(all_timer.end()))
 
 
 if __name__ == '__main__':

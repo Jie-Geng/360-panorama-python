@@ -27,8 +27,8 @@ class MetaData:
 
     # camera sensor data.
     # TODO: It should be loaded from JSON file
-    sensor_width: float = 4.2336,
-    sensor_height: float = 5.6447997,
+    sensor_width: float = 4.2336
+    sensor_height: float = 5.6447997
     focal_length: float = 4.25
 
     def __init__(self, base_folder):
@@ -209,7 +209,9 @@ class PanoMetrics:
         self.FIA_v = np.pi / self.N_v
 
         # get frame size from the center image
-        img = cv.imread(os.path.join(self.folder_path, meta_data.iloc[0]['uri'].value))
+        print(meta_data[(meta_data.row == self.N_v // 2) & (meta_data.col == self.N_h // 2)]['uri'].values[0])
+        img = cv.imread(os.path.join(self.folder_path, meta_data[(meta_data.row == self.N_v // 2) &
+                                                                 (meta_data.col == self.N_h // 2)]['uri'].values[0]))
         self.FH, self.FW, _ = img.shape
         del img
 
