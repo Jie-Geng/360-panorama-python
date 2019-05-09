@@ -7,6 +7,7 @@ from libpano import Preprocess
 from libpano import Stitcher
 from libpano import Config
 from libpano import utils
+from libpano import FocalCalculator
 
 parser = argparse.ArgumentParser(prog='start.py', description='my panorama stitch program')
 parser.add_argument('folder', nargs='+', help='folder containing files to stitch', type=str)
@@ -50,6 +51,7 @@ def main():
     scale_y = pano_height / meta.metrics.PH
     scale = max(scale_x, scale_y)
 
+    """
     # resize images
     # comment for dev
     if Config.verbose:
@@ -60,10 +62,13 @@ def main():
 
     if Config.verbose:
         print('Finished in {:.2f} seconds'.format(timer.end()))
+    """
 
     # recalculate the metrics as the image size has changed
     meta.load_panorama_metrics(temp_folder)
+    print(meta.grid_data)
 
+    """
     # transform images
     if Config.verbose:
         timer.begin()
@@ -96,6 +101,13 @@ def main():
     if Config.verbose:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
+    """
+
+    fc = FocalCalculator.FocalCalculator(temp_folder, meta)
+
+    for row in range(5):
+        fc.get_focal(row)
+
     # delete of temp directory
     try:
         shutil.rmtree('temp')
@@ -108,5 +120,4 @@ def main():
 
 
 if __name__ == '__main__':
-    print(__doc__)
     main()

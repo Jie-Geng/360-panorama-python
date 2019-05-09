@@ -3,10 +3,14 @@
     <words>
       <w>dataframe</w>
       <w>dest</w>
+      <w>focals</w>
       <w>homography</w>
       <w>iframe</w>
+      <w>kinv</w>
       <w>pano</w>
       <w>preprocess</w>
+      <w>proj</w>
+      <w>rgba</w>
       <w>stitcher</w>
       <w>uint</w>
     </words>
