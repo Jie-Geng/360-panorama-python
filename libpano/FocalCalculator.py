@@ -85,6 +85,13 @@ class FocalCalculator:
 
     @staticmethod
     def cylindrical_projection(img, focal_length):
+        """
+        This functions performs cylindrical warping, but its speed is slow and depricated.
+
+        :param img: image contents
+        :param focal_length:  focal length of images
+        :return: warped image
+        """
         height, width, _ = img.shape
         cylinder_proj = np.zeros(shape=img.shape, dtype=np.uint8)
 
@@ -127,15 +134,23 @@ class FocalCalculator:
         b[(b[:, 0] < 0) | (b[:, 0] >= w_) | (b[:, 1] < 0) | (b[:, 1] >= h_)] = -1
         b = b.reshape(h_, w_, -1)
 
-        img_rgba = cv.cvtColor(img, cv.COLOR_BGR2BGRA)  # for transparent borders...
+        # img_rgba = cv.cvtColor(img, cv.COLOR_BGR2BGRA)  # for transparent borders...
         # warp the image according to cylindrical coordinates
-        return cv.remap(img_rgba,
+        img = cv.remap(img,
                         b[:, :, 0].astype(np.float32),
                         b[:, :, 1].astype(np.float32),
                         cv.INTER_AREA,
                         borderMode=cv.BORDER_TRANSPARENT)
 
-    def get_focal(self, row):
+        # Crop black border
+        # ref: http://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
+        _, thresh = cv.threshold(cv.cvtColor(img, cv.COLOR_BGR2GRAY), 1, 255, cv.THRESH_BINARY)
+        contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        x, y, w, h = cv.boundingRect(contours[0])
+
+        return img[y:y + h, x:x + w]
+
+    def get_focal(self, row, do_cylindrical_warp=False):
         self.images = []
         self.image_names = []
         self.features = []
@@ -147,19 +162,20 @@ class FocalCalculator:
 
         print('{}th row\'s focal length = {}'.format(row, self.focal))
 
-        """
-        for idx, image_name in enumerate(self.image_names):
-            image = self.images[idx]
+        if do_cylindrical_warp:
+            for idx, image_name in enumerate(self.image_names):
+                image = self.images[idx]
 
-            h, w = image.shape[:2]
-            k = np.array([[self.focal, 0, w / 2], [0, self.focal, h / 2], [0, 0, 1]])  # mock intrinsics
-            image = self.cylindrical_warp(image, k)
+                h, w = image.shape[:2]
+                k = np.array([[self.focal, 0, w / 2], [0, self.focal, h / 2], [0, 0, 1]])  # mock intrinsics
+                image = self.cylindrical_warp(image, k)
 
-            target_name = os.path.join(self.image_folder, 'converted-' + image_name)
-            print(target_name)
-            cv.imwrite(target_name, image)
+                target_name = os.path.join(self.image_folder, image_name)
+                print(target_name)
+                cv.imwrite(target_name, image)
 
-        print('Cylindrical projection was finished.')
-        """
+            print('Cylindrical projection was finished.')
 
         del self.images, self.image_names, self.features, self.matches
+
+        return self.focal

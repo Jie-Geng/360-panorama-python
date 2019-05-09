@@ -47,8 +47,8 @@ class Stitcher:
         pitch = utils.degree2radian(pitch)
         yaw = utils.degree2radian(yaw)
 
-        x = yaw * self.metrics.PPR_v + Config.frame_margin
-        y = (pitch + np.pi / 2) * self.metrics.PPR_h + Config.frame_margin
+        x = yaw * self.metrics.PPR_v  # + Config.frame_margin
+        y = (pitch + np.pi / 2) * self.metrics.PPR_h  # + Config.frame_margin
 
         return int(x), int(y)
 

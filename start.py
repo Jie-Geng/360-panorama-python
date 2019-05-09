@@ -9,6 +9,8 @@ from libpano import Config
 from libpano import utils
 from libpano import FocalCalculator
 
+from libpano import manual
+
 parser = argparse.ArgumentParser(prog='start.py', description='my panorama stitch program')
 parser.add_argument('folder', nargs='+', help='folder containing files to stitch', type=str)
 parser.add_argument('--width', help='Width of the output panorama', type=int, dest='width')
@@ -51,7 +53,7 @@ def main():
     scale_y = pano_height / meta.metrics.PH
     scale = max(scale_x, scale_y)
 
-    """
+
     # resize images
     # comment for dev
     if Config.verbose:
@@ -62,13 +64,34 @@ def main():
 
     if Config.verbose:
         print('Finished in {:.2f} seconds'.format(timer.end()))
-    """
 
     # recalculate the metrics as the image size has changed
     meta.load_panorama_metrics(temp_folder)
-    print(meta.grid_data)
 
-    """
+    manual_stitching_test = False
+    if manual_stitching_test:
+        row = 2
+        fc = FocalCalculator.FocalCalculator(temp_folder, meta)
+        focal = fc.get_focal(row, do_cylindrical_warp=False)
+        df = meta.grid_data
+        df = df[df.row == row].sort_values(by='yaw')
+        uris = df['uri'].values.tolist()
+        names = []
+        focals = []
+        for uri in uris:
+            names.append(os.path.join(temp_folder, uri))
+            focals.append(focal)
+
+        manual.manual_main(names, focals)
+
+    # fc = FocalCalculator.FocalCalculator(temp_folder, meta)
+    # for row in range(Config.start_row, Config.end_row):
+    #     fc.get_focal(row, do_cylindrical_warp=True)
+
+    # recalculate the metrics as the image size has changed
+    meta.load_panorama_metrics(temp_folder)
+
+    # """
     # transform images
     if Config.verbose:
         timer.begin()
@@ -101,12 +124,7 @@ def main():
     if Config.verbose:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
-    """
-
-    fc = FocalCalculator.FocalCalculator(temp_folder, meta)
-
-    for row in range(5):
-        fc.get_focal(row)
+    # """
 
     # delete of temp directory
     try:

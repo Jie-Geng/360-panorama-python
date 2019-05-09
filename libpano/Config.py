@@ -1,6 +1,6 @@
 verbose = True
 
-frame_margin = 80
-start_row = 0
-end_row = 5
+frame_margin = 15
+start_row = 1
+end_row = 4
 
