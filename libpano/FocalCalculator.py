@@ -23,6 +23,7 @@ class FocalCalculator:
     matches = []
 
     # focal length
+    focals = []
     focal = 0
 
     def __init__(self, image_folder, meta_data):
@@ -76,7 +77,9 @@ class FocalCalculator:
         for cam in cameras:
             focals.append(cam.focal)
 
-        sorted(focals)
+        self.focals = focals
+
+        focals = sorted(focals)
 
         if len(focals) % 2 == 1:
             self.focal = focals[len(focals) // 2]
@@ -86,7 +89,7 @@ class FocalCalculator:
     @staticmethod
     def cylindrical_projection(img, focal_length):
         """
-        This functions performs cylindrical warping, but its speed is slow and depricated.
+        This functions performs cylindrical warping, but its speed is slow and deprecated.
 
         :param img: image contents
         :param focal_length:  focal length of images
@@ -105,6 +108,10 @@ class FocalCalculator:
 
                 if (cylinder_x >= 0) and (cylinder_x < width) and (cylinder_y >= 0) and (cylinder_y < height):
                     cylinder_proj[cylinder_y][cylinder_x] = img[y + int(height / 2)][x + int(width / 2)]
+
+        cv.imshow('warped', cylinder_proj)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
         # Crop black border
         # ref: http://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
@@ -137,10 +144,10 @@ class FocalCalculator:
         # img_rgba = cv.cvtColor(img, cv.COLOR_BGR2BGRA)  # for transparent borders...
         # warp the image according to cylindrical coordinates
         img = cv.remap(img,
-                        b[:, :, 0].astype(np.float32),
-                        b[:, :, 1].astype(np.float32),
-                        cv.INTER_AREA,
-                        borderMode=cv.BORDER_TRANSPARENT)
+                       b[:, :, 0].astype(np.float32),
+                       b[:, :, 1].astype(np.float32),
+                       cv.INTER_AREA,
+                       borderMode=cv.BORDER_TRANSPARENT)
 
         # Crop black border
         # ref: http://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
@@ -148,7 +155,14 @@ class FocalCalculator:
         contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         x, y, w, h = cv.boundingRect(contours[0])
 
-        return img[y:y + h, x:x + w]
+        if w > 0 and h > 0:
+            img = img[y:y + h, x:x + w]
+
+        cv.imshow('cropped', img)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+
+        return img
 
     def get_focal(self, row, do_cylindrical_warp=False):
         self.images = []
@@ -171,11 +185,6 @@ class FocalCalculator:
                 image = self.cylindrical_warp(image, k)
 
                 target_name = os.path.join(self.image_folder, image_name)
-                print(target_name)
                 cv.imwrite(target_name, image)
-
-            print('Cylindrical projection was finished.')
-
-        del self.images, self.image_names, self.features, self.matches
 
         return self.focal

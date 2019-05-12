@@ -107,6 +107,8 @@ def process_frame(args):
     h = 2 * (dy + Config.frame_margin)
 
     img = img[y:y+h, x:x+w]
+    # cropper = ImageCropper.ImageCropper(img)
+    # img = cropper.crop()
 
     cv.imwrite(src_path, img)
 

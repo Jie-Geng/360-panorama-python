@@ -58,7 +58,7 @@ def main():
     # comment for dev
     if Config.verbose:
         timer.begin()
-        print('Resizing images...')
+        print('Resizing images scale={:.2f}...'.format(scale), end='', flush=True)
 
     Preprocess.preprocess_resize(base_folder, temp_folder, meta, scale)
 
@@ -67,6 +67,8 @@ def main():
 
     # recalculate the metrics as the image size has changed
     meta.load_panorama_metrics(temp_folder)
+    print('meta was reloaded.')
+    print(meta.metrics)
 
     manual_stitching_test = False
     if manual_stitching_test:
@@ -77,12 +79,12 @@ def main():
         df = df[df.row == row].sort_values(by='yaw')
         uris = df['uri'].values.tolist()
         names = []
-        focals = []
+        focals = fc.focals
         for uri in uris:
             names.append(os.path.join(temp_folder, uri))
-            focals.append(focal)
 
         manual.manual_main(names, focals)
+        return
 
     # fc = FocalCalculator.FocalCalculator(temp_folder, meta)
     # for row in range(Config.start_row, Config.end_row):
@@ -95,7 +97,7 @@ def main():
     # transform images
     if Config.verbose:
         timer.begin()
-        print('Transforming images...')
+        print('Transforming images...', end='', flush=True)
 
     Preprocess.preprocess_frames(temp_folder, meta)
 
@@ -105,7 +107,7 @@ def main():
     # begin stitching
     if Config.verbose:
         timer.begin()
-        print('Positioning images...')
+        print('Positioning images...', end='', flush=True)
 
     stitcher = Stitcher.Stitcher(temp_folder, meta)
     stitcher.load_frames()
@@ -116,7 +118,7 @@ def main():
     # blending images
     if Config.verbose:
         timer.begin()
-        print('Blending images...')
+        print('Blending images...', end='', flush=True)
 
     output = stitcher.blend_frames()
     cv.imwrite(output_fn, output)

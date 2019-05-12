@@ -99,13 +99,20 @@ class MetaData:
 
         # Read JSON file into a dataframe
         json_data = json.load(open(self.json_path, 'rt'))
+
+        self.focal_length = json_data['focalLength']
+        self.sensor_width = json_data['angleViewY']
+        self.sensor_height = json_data['angleViewX']
+
+        pictures = json_data['pictures']
+
         meta_pd = pd.DataFrame({
-            'degree': [item['degrees'] for item in json_data],
-            'ring': [item['ring'] for item in json_data],
-            'uri': [item['sensors']['fileUri'] for item in json_data],
-            'pitch': [item['sensors']['roll_pitch_yaw']['pitch'] for item in json_data],
-            'roll': [item['sensors']['roll_pitch_yaw']['roll'] for item in json_data],
-            'yaw': [item['sensors']['roll_pitch_yaw']['yaw'] for item in json_data]
+            'degree': [item['degrees'] for item in pictures],
+            'ring': [item['ring'] for item in pictures],
+            'uri': [item['sensors']['fileUri'] for item in pictures],
+            'pitch': [item['sensors']['roll_pitch_yaw']['pitch'] for item in pictures],
+            'roll': [item['sensors']['roll_pitch_yaw']['roll'] for item in pictures],
+            'yaw': [item['sensors']['roll_pitch_yaw']['yaw'] for item in pictures]
         })
 
         # Refine image files sorted by pitch(vertical) and yaw(horizontal)
@@ -209,9 +216,8 @@ class PanoMetrics:
         self.FIA_v = np.pi / self.N_v
 
         # get frame size from the center image
-        print(meta_data[(meta_data.row == self.N_v // 2) & (meta_data.col == self.N_h // 2)]['uri'].values[0])
-        img = cv.imread(os.path.join(self.folder_path, meta_data[(meta_data.row == self.N_v // 2) &
-                                                                 (meta_data.col == self.N_h // 2)]['uri'].values[0]))
+        uri = meta_data[(meta_data.row == self.N_v // 2) & (meta_data.col == self.N_h // 2)]['uri'].values[0]
+        img = cv.imread(os.path.join(self.folder_path, uri))
         self.FH, self.FW, _ = img.shape
         del img
 
@@ -227,6 +233,13 @@ class PanoMetrics:
         self.PPR_h = self.FW / self.AOV_h
         self.PPR_v = self.FH / self.AOV_v
 
+        # get pixels per millimeter
+        self.PPM_h = self.FW / self.sensor_width
+        self.PPM_v = self.FH / self.sensor_height
+
+        # focal length in pixels
+        self.focal_length_px = self.PPM_h * self.focal_length
+
         # get radius of sphere
         self.R_h = self.PPR_h
         self.R_v = self.PPR_v
@@ -236,7 +249,12 @@ class PanoMetrics:
         self.PH = np.pi * self.R_v
 
     def __str__(self):
-        string = 'Panorama Metrics:\n'
+        string = 'Camera Metrics:\n'
+        string += '\tFocal Length: {} mm\n'.format(self.focal_length)
+        string += '\tFocal Length: {:.2f} px\n'.format(self.focal_length_px)
+        string += '\tSensor Size: {} x {} mm\n'.format(self.sensor_width, self.sensor_height)
+        string += '\tPixels per mm: {:.2f} x {:.2f} px/mm\n'.format(self.PPM_h, self.PPM_v)
+        string += 'Panorama Metrics:\n'
         string += '\tFrame Size: {}px x {}px\n'.format(self.FW, self.FH)
         string += '\tFrame Count: {} x {}\n'.format(self.N_h, self.N_v)
         string += '\tInterval Angle: {}︒ x {}︒\n'.format(utils.radian2degree(self.FIA_h),

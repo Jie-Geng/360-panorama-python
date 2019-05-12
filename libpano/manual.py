@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 from libpano import FocalCalculator
 
-DEBUG             = True
+DEBUG = True
 FEATURE_THRESHOLD = 0.01
-DESCRIPTOR_SIZE   = 5
-MATCHING_Y_RANGE  = 50
+DESCRIPTOR_SIZE = 5
+MATCHING_Y_RANGE = 50
 
-RANSAC_K          = 200
-RANSAC_THRES_DISTANCE = 3
+RANSAC_K = 200
+RANSAC_THRESHOLD_DISTANCE = 3
 
 ALPHA_BLEND_WINDOW = 20
 
@@ -21,10 +21,10 @@ FEATURE_CUT_Y_EDGE = 5
 def compute_r(xx_row, yy_row, xy_row, k):
     row_response = np.zeros(shape=xx_row.shape, dtype=np.float32)
     for x in range(len(xx_row)):
-        det_M = xx_row[x] * yy_row[x] - xy_row[x] ** 2
-        trace_M = xx_row[x] + yy_row[x]
-        R = det_M - k * trace_M ** 2
-        row_response[x] = R
+        det_m = xx_row[x] * yy_row[x] - xy_row[x] ** 2
+        trace_m = xx_row[x] + yy_row[x]
+        r = det_m - k * trace_m ** 2
+        row_response[x] = r
 
     return row_response
 
@@ -47,18 +47,16 @@ def harris_corner(img, pool, k=0.08, block_size=2):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = np.float32(gray) / 255
 
-    corner_response = np.zeros(shape=gray.shape, dtype=np.float32)
-
     height, width, _ = img.shape
     dx = cv2.Sobel(gray, -1, 1, 0)
     dy = cv2.Sobel(gray, -1, 0, 1)
-    Ixx = dx * dx
-    Iyy = dy * dy
-    Ixy = dx * dy
+    ixx = dx * dx
+    iyy = dy * dy
+    ixy = dx * dy
 
-    cov_xx = cv2.boxFilter(Ixx, -1, (block_size, block_size), normalize=False)
-    cov_yy = cv2.boxFilter(Iyy, -1, (block_size, block_size), normalize=False)
-    cov_xy = cv2.boxFilter(Ixy, -1, (block_size, block_size), normalize=False)
+    cov_xx = cv2.boxFilter(ixx, -1, (block_size, block_size), normalize=False)
+    cov_yy = cv2.boxFilter(iyy, -1, (block_size, block_size), normalize=False)
+    cov_xy = cv2.boxFilter(ixy, -1, (block_size, block_size), normalize=False)
 
     corner_response = pool.starmap(compute_r, [(cov_xx[y], cov_yy[y], cov_xy[y], k) for y in range(height)])
 
@@ -66,11 +64,11 @@ def harris_corner(img, pool, k=0.08, block_size=2):
 
 
 """
-Extract descritpor from corner response image
+Extract descriptor from corner response image
 
 Args:
     corner_response: corner response matrix
-    threshlod: only corner response > 'max_corner_response*threshold' will be extracted
+    threshold: only corner response > 'max_corner_response*threshold' will be extracted
     kernel: descriptor's window size, the descriptor will be kernel^2 dimension vector 
 
 Returns:
@@ -78,7 +76,7 @@ Returns:
 """
 
 
-def extract_description(img, corner_response, threshold=0.05, kernel=3):
+def extract_description(corner_response, threshold=0.05, kernel=3):
     height, width = corner_response.shape
 
     # Reduce corner
@@ -122,9 +120,9 @@ Matching two groups of descriptors
 Args:
     descriptor1:
     descriptor2:
-    feature_position1: descriptor1's corrsponsed position
-    feature_position2: descriptor2's corrsponsed position
-    pool: for mulitiprocessing
+    feature_position1: descriptor1's corresponded position
+    feature_position2: descriptor2's corresponded position
+    pool: for multiprocessing
     y_range: restrict only to match y2-y_range < y < y2+y_range
 
 Returns:
@@ -133,13 +131,13 @@ Returns:
 
 
 def matching(descriptor1, descriptor2, feature_position1, feature_position2, pool, y_range=10):
-    TASKS_NUM = 32
+    task_number = 32
 
-    partition_descriptors = np.array_split(descriptor1, TASKS_NUM)
-    partition_positions = np.array_split(feature_position1, TASKS_NUM)
+    partition_descriptors = np.array_split(descriptor1, task_number)
+    partition_positions = np.array_split(feature_position1, task_number)
 
     sub_tasks = [(partition_descriptors[i], descriptor2, partition_positions[i], feature_position2, y_range) for i in
-                 range(TASKS_NUM)]
+                 range(task_number)]
     results = pool.starmap(compute_match, sub_tasks)
 
     matched_pairs = []
@@ -211,17 +209,17 @@ Raise:
 """
 
 
-def RANSAC(matched_pairs, prev_shift):
+def ransac(matched_pairs, prev_shift):
     matched_pairs = np.asarray(matched_pairs)
 
     use_random = True if len(matched_pairs) > RANSAC_K else False
 
     best_shift = []
-    K = RANSAC_K if use_random else len(matched_pairs)
-    threshold_distance = RANSAC_THRES_DISTANCE
+    k = RANSAC_K if use_random else len(matched_pairs)
+    threshold_distance = RANSAC_THRESHOLD_DISTANCE
 
-    max_inliner = 0
-    for k in range(K):
+    max_inlier = 0
+    for k in range(k):
         # Random pick a pair of matched feature
         idx = int(np.random.random_sample() * len(matched_pairs)) if use_random else k
         sample = matched_pairs[idx]
@@ -229,17 +227,17 @@ def RANSAC(matched_pairs, prev_shift):
         # fit the warp model
         shift = sample[1] - sample[0]
 
-        # calculate inliner points
+        # calculate inlier points
         shifted = matched_pairs[:, 1] - shift
         difference = matched_pairs[:, 0] - shifted
 
-        inliner = 0
+        inlier = 0
         for diff in difference:
             if np.sqrt((diff ** 2).sum()) < threshold_distance:
-                inliner = inliner + 1
+                inlier = inlier + 1
 
-        if inliner > max_inliner:
-            max_inliner = inliner
+        if inlier > max_inlier:
+            max_inlier = inlier
             best_shift = shift
 
     if prev_shift[1] * best_shift[1] < 0:
@@ -338,7 +336,6 @@ def end2end_align(img, shifts):
     sum_y, sum_x = np.sum(shifts, axis=0)
 
     y_shift = np.abs(sum_y)
-    col_shift = None
 
     # same sign
     if sum_x * sum_y > 0:
@@ -383,15 +380,15 @@ def crop(img):
     return img[upper:lower, :]
 
 
-def matched_pairs_plot(p1, p2, mp):
+def matched_pairs_plot(p1, p2, match):
     _, offset, _ = p1.shape
     plt_img = np.concatenate((p1, p2), axis=1)
-    plt.figure(figsize=(10,10))
+    plt.figure(figsize=(10, 10))
     plt.imshow(plt_img)
-    for i in range(len(mp)):
-        plt.scatter(x=mp[i][0][1], y=mp[i][0][0], c='r')
-        plt.plot([mp[i][0][1], offset+mp[i][1][1]], [mp[i][0][0], mp[i][1][0]], 'y-', lw=1)
-        plt.scatter(x=offset+mp[i][1][1], y=mp[i][1][0], c='b')
+    for i in range(len(match)):
+        plt.scatter(x=match[i][0][1], y=match[i][0][0], c='r')
+        plt.plot([match[i][0][1], offset + match[i][1][1]], [match[i][0][0], match[i][1][0]], 'y-', lw=1)
+        plt.scatter(x=offset + match[i][1][1], y=match[i][1][0], c='b')
     plt.show()
     cv2.waitKey(0)
 
@@ -401,11 +398,20 @@ def manual_main(file_names, focal_lengths):
     pool = mp.Pool(mp.cpu_count())
 
     print('Warp images to cylinder')
+    print('Focals:', focal_lengths)
     img_list = []
     ks = []
     args = []
     for idx in range(len(focal_lengths)):
+        if DEBUG:
+            print('reading ', file_names[idx])
+
         img = cv2.imread(file_names[idx])
+        if DEBUG:
+            cv2.imshow(file_names[idx], img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
         img_list.append(img)
 
         focal = focal_lengths[idx]
@@ -413,9 +419,9 @@ def manual_main(file_names, focal_lengths):
         k = np.array([[focal, 0, w / 2], [0, focal, h / 2], [0, 0, 1]])  # mock intrinsics
         ks.append(k)
 
-        args.append((img, k))
+        args.append((img, focal))
 
-    cylinder_img_list = pool.starmap(FocalCalculator.FocalCalculator.cylindrical_warp, args)
+    cylinder_img_list = pool.starmap(FocalCalculator.FocalCalculator.cylindrical_projection, args)
 
     _, img_width, _ = img_list[0].shape
     stitched_image = cylinder_img_list[0].copy()
@@ -432,15 +438,17 @@ def manual_main(file_names, focal_lengths):
 
         print(' - Find features in previous img .... ', end='', flush=True)
         descriptors1, position1 = cache_feature
+        corner_response1 = []
+
         if len(descriptors1) == 0:
             corner_response1 = harris_corner(img1, pool)
-            descriptors1, position1 = extract_description(img1, corner_response1, kernel=DESCRIPTOR_SIZE,
+            descriptors1, position1 = extract_description(corner_response1, kernel=DESCRIPTOR_SIZE,
                                                           threshold=FEATURE_THRESHOLD)
         print(str(len(descriptors1)) + ' features extracted.')
 
         print(' - Find features in img_' + str(i + 1) + ' .... ', end='', flush=True)
         corner_response2 = harris_corner(img2, pool)
-        descriptors2, position2 = extract_description(img2, corner_response2, kernel=DESCRIPTOR_SIZE,
+        descriptors2, position2 = extract_description(corner_response2, kernel=DESCRIPTOR_SIZE,
                                                       threshold=FEATURE_THRESHOLD)
         print(str(len(descriptors2)) + ' features extracted.')
 
@@ -486,7 +494,7 @@ def manual_main(file_names, focal_lengths):
             matched_pairs_plot(img1, img2, matched_pairs)
 
         print(' - Find best shift using RANSAC .... ', end='', flush=True)
-        shift = RANSAC(matched_pairs, shifts[-1])
+        shift = ransac(matched_pairs, shifts[-1])
         shifts += [shift]
         print('best shift ', shift)
 
