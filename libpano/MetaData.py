@@ -253,10 +253,12 @@ class PanoMetrics:
         string += '\tFocal Length: {} mm\n'.format(self.focal_length)
         string += '\tFocal Length: {:.2f} px\n'.format(self.focal_length_px)
         string += '\tSensor Size: {} x {} mm\n'.format(self.sensor_width, self.sensor_height)
-        string += '\tPixels per mm: {:.2f} x {:.2f} px/mm\n'.format(self.PPM_h, self.PPM_v)
-        string += 'Panorama Metrics:\n'
-        string += '\tFrame Size: {}px x {}px\n'.format(self.FW, self.FH)
+        string += '\tPixels per mm: {:.2f} x {:.2f} px\n'.format(self.FW/self.sensor_width,
+                                                                 self.FH/self.sensor_height)
+
+        string += 'PanoramaMetrics:'
         string += '\tFrame Count: {} x {}\n'.format(self.N_h, self.N_v)
+        string += '\tFrame Size: {}px x {}px\n'.format(self.FW, self.FH)
         string += '\tInterval Angle: {}︒ x {}︒\n'.format(utils.radian2degree(self.FIA_h),
                                                          utils.radian2degree(self.FIA_v))
         string += '\tAoV: {:.4f}︒ x {:.4f}︒\n'.format(utils.radian2degree(self.AOV_h),

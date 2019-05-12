@@ -32,7 +32,7 @@ def main():
     output_fn = args.output
 
     meta = MetaData.MetaData(base_folder)
-    if Config.verbose:
+    if Config.debug:
         print("Meta data was loaded.")
         print(meta.metrics)
 
@@ -46,23 +46,22 @@ def main():
     except OSError:
         print('Creation of temp directory failed')
     else:
-        if Config.verbose:
+        if Config.debug:
             print('temp directory was created.')
 
     scale_x = pano_width / meta.metrics.PW
     scale_y = pano_height / meta.metrics.PH
     scale = max(scale_x, scale_y)
 
-
     # resize images
     # comment for dev
-    if Config.verbose:
+    if Config.debug:
         timer.begin()
         print('Resizing images scale={:.2f}...'.format(scale), end='', flush=True)
 
     Preprocess.preprocess_resize(base_folder, temp_folder, meta, scale)
 
-    if Config.verbose:
+    if Config.debug:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
     # recalculate the metrics as the image size has changed
@@ -95,35 +94,37 @@ def main():
 
     # """
     # transform images
-    if Config.verbose:
+    if Config.debug:
         timer.begin()
         print('Transforming images...', end='', flush=True)
 
-    Preprocess.preprocess_frames(temp_folder, meta)
+    Preprocess.preprocess_warp(temp_folder, meta)
 
-    if Config.verbose:
+    if Config.debug:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
+    return
+
     # begin stitching
-    if Config.verbose:
+    if Config.debug:
         timer.begin()
         print('Positioning images...', end='', flush=True)
 
     stitcher = Stitcher.Stitcher(temp_folder, meta)
     stitcher.load_frames()
 
-    if Config.verbose:
+    if Config.debug:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
     # blending images
-    if Config.verbose:
+    if Config.debug:
         timer.begin()
         print('Blending images...', end='', flush=True)
 
     output = stitcher.blend_frames()
     cv.imwrite(output_fn, output)
 
-    if Config.verbose:
+    if Config.debug:
         print('Finished in {:.2f} seconds'.format(timer.end()))
 
     # """

@@ -3,6 +3,8 @@ import math
 import numpy as np
 import cv2 as cv
 
+from libpano.ImageCropper import ImageCropper
+
 
 class FocalCalculator:
 
@@ -147,22 +149,14 @@ class FocalCalculator:
                        b[:, :, 0].astype(np.float32),
                        b[:, :, 1].astype(np.float32),
                        cv.INTER_AREA,
-                       borderMode=cv.BORDER_TRANSPARENT)
+                       borderMode=cv.BORDER_CONSTANT,
+                       borderValue=(0, 0, 0))
 
         # Crop black border
-        # ref: http://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
-        _, thresh = cv.threshold(cv.cvtColor(img, cv.COLOR_BGR2GRAY), 1, 255, cv.THRESH_BINARY)
-        contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        x, y, w, h = cv.boundingRect(contours[0])
+        cropper = ImageCropper(img)
+        cropped_image = cropper.crop()
 
-        if w > 0 and h > 0:
-            img = img[y:y + h, x:x + w]
-
-        cv.imshow('cropped', img)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-
-        return img
+        return cropped_image
 
     def get_focal(self, row, do_cylindrical_warp=False):
         self.images = []
