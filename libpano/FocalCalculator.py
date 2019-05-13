@@ -1,9 +1,8 @@
 import os
-import math
 import numpy as np
 import cv2 as cv
 
-from libpano.ImageCropper import ImageCropper
+from libpano import warpers
 
 
 class FocalCalculator:
@@ -88,76 +87,6 @@ class FocalCalculator:
         else:
             self.focal = (focals[len(focals) // 2] + focals[len(focals) // 2 - 1]) / 2
 
-    @staticmethod
-    def cylindrical_projection(img, focal_length):
-        """
-        This functions performs cylindrical warping, but its speed is slow and deprecated.
-
-        :param img: image contents
-        :param focal_length:  focal length of images
-        :return: warped image
-        """
-        height, width, _ = img.shape
-        cylinder_proj = np.zeros(shape=img.shape, dtype=np.uint8)
-
-        for y in range(-int(height / 2), int(height / 2)):
-            for x in range(-int(width / 2), int(width / 2)):
-                cylinder_x = focal_length * math.atan(x / focal_length)
-                cylinder_y = focal_length * y / math.sqrt(x ** 2 + focal_length ** 2)
-
-                cylinder_x = round(cylinder_x + width / 2)
-                cylinder_y = round(cylinder_y + height / 2)
-
-                if (cylinder_x >= 0) and (cylinder_x < width) and (cylinder_y >= 0) and (cylinder_y < height):
-                    cylinder_proj[cylinder_y][cylinder_x] = img[y + int(height / 2)][x + int(width / 2)]
-
-        cv.imshow('warped', cylinder_proj)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-
-        # Crop black border
-        # ref: http://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
-        _, thresh = cv.threshold(cv.cvtColor(cylinder_proj, cv.COLOR_BGR2GRAY), 1, 255, cv.THRESH_BINARY)
-        contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        x, y, w, h = cv.boundingRect(contours[0])
-
-        return cylinder_proj[y:y + h, x:x + w]
-
-    @staticmethod
-    def cylindrical_warp(img, k):
-        """This function returns the cylindrical warp for a given image and intrinsics matrix K"""
-        h_, w_ = img.shape[:2]
-
-        # pixel coordinates
-        y_i, x_i = np.indices((h_, w_))
-        x = np.stack([x_i, y_i, np.ones_like(x_i)], axis=-1).reshape(h_ * w_, 3)  # to homography
-        k_inv = np.linalg.inv(k)
-        x = k_inv.dot(x.T).T  # normalized coordinates
-
-        # calculate cylindrical coordinates (sin\theta, h, cos\theta)
-        a = np.stack([np.sin(x[:, 0]), x[:, 1], np.cos(x[:, 0])], axis=-1).reshape(w_ * h_, 3)
-        b = k.dot(a.T).T  # project back to image-pixels plane
-        # back from homography coordinates
-        b = b[:, :-1] / b[:, [-1]]
-        # make sure warp coordinates only within image bounds
-        b[(b[:, 0] < 0) | (b[:, 0] >= w_) | (b[:, 1] < 0) | (b[:, 1] >= h_)] = -1
-        b = b.reshape(h_, w_, -1)
-
-        # img_rgba = cv.cvtColor(img, cv.COLOR_BGR2BGRA)  # for transparent borders...
-        # warp the image according to cylindrical coordinates
-        img = cv.remap(img,
-                       b[:, :, 0].astype(np.float32),
-                       b[:, :, 1].astype(np.float32),
-                       cv.INTER_AREA,
-                       borderMode=cv.BORDER_CONSTANT,
-                       borderValue=(0, 0, 0))
-
-        # Crop black border
-        cropper = ImageCropper(img)
-        cropped_image = cropper.crop()
-
-        return cropped_image
-
     def get_focal(self, row, do_cylindrical_warp=False):
         self.images = []
         self.image_names = []
@@ -176,7 +105,7 @@ class FocalCalculator:
 
                 h, w = image.shape[:2]
                 k = np.array([[self.focal, 0, w / 2], [0, self.focal, h / 2], [0, 0, 1]])  # mock intrinsics
-                image = self.cylindrical_warp(image, k)
+                image = warpers.cylindrical_warp_with_k(image, k)
 
                 target_name = os.path.join(self.image_folder, image_name)
                 cv.imwrite(target_name, image)

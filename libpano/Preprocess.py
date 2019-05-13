@@ -9,7 +9,7 @@ import imutils
 from libpano import utils
 from libpano import Config
 from libpano import ImageCropper
-from libpano.FocalCalculator import FocalCalculator
+from libpano import warpers
 
 
 def preprocess_resize(image_folder, temp_folder, meta, scale):
@@ -185,7 +185,7 @@ def warp_frame(args):
                   [0,                  PM.focal_length_px, PM.FH / 2],
                   [0,                  0,                  1]], np.float32)
 
-    cylindrical = FocalCalculator.cylindrical_warp(perspective, k)
+    cylindrical = warpers.cylindrical_warp_with_k(perspective, k)
 
     # Crop image
     # x = cx - dx - Config.frame_margin

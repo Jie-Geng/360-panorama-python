@@ -26,7 +26,6 @@ class MetaData:
     image_path: str = None
 
     # camera sensor data.
-    # TODO: It should be loaded from JSON file
     sensor_width: float = 4.2336
     sensor_height: float = 5.6447997
     focal_length: float = 4.25
@@ -256,13 +255,14 @@ class PanoMetrics:
         string += '\tPixels per mm: {:.2f} x {:.2f} px\n'.format(self.FW/self.sensor_width,
                                                                  self.FH/self.sensor_height)
 
-        string += 'PanoramaMetrics:'
+        string += 'PanoramaMetrics:\n'
         string += '\tFrame Count: {} x {}\n'.format(self.N_h, self.N_v)
         string += '\tFrame Size: {}px x {}px\n'.format(self.FW, self.FH)
         string += '\tInterval Angle: {}︒ x {}︒\n'.format(utils.radian2degree(self.FIA_h),
                                                          utils.radian2degree(self.FIA_v))
         string += '\tAoV: {:.4f}︒ x {:.4f}︒\n'.format(utils.radian2degree(self.AOV_h),
                                                       utils.radian2degree(self.AOV_v))
+        string += '\tAoV: {:.4f} x {:.4f}\n'.format(self.AOV_h, self.AOV_v)
         string += '\tPPR: {:.4f}px x {:.4f}px\n'.format(self.PPR_h, self.PPR_v)
         string += '\tPanorama Size: {:.4f}px x {:.4f}px\n'.format(self.PW, self.PH)
         return string

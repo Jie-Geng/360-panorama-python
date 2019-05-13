@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-from libpano import FocalCalculator
+from libpano import warpers
 
 DEBUG = True
 FEATURE_THRESHOLD = 0.01
@@ -29,21 +29,17 @@ def compute_r(xx_row, yy_row, xy_row, k):
     return row_response
 
 
-"""
-Harris corner detector
-
-Args:
-    img: input image
-    pool: for multiprocessing
-    k: harris corner constant value
-    block_size: harris corner windows size
-
-Returns:
-    A corner response matrix. width, height same as input image
-"""
-
-
 def harris_corner(img, pool, k=0.08, block_size=2):
+    """
+    Harris corner detector
+
+    :param img: input image
+    :param pool: for multiprocessing
+    :param k: harris corner constant value
+    :param block_size: harris corner windows size
+    :return: A corner response matrix. width, height same as input image
+    """
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = np.float32(gray) / 255
 
@@ -63,20 +59,15 @@ def harris_corner(img, pool, k=0.08, block_size=2):
     return np.asarray(corner_response)
 
 
-"""
-Extract descriptor from corner response image
-
-Args:
-    corner_response: corner response matrix
-    threshold: only corner response > 'max_corner_response*threshold' will be extracted
-    kernel: descriptor's window size, the descriptor will be kernel^2 dimension vector 
-
-Returns:
-    A pair of (descriptors, positions)
-"""
-
-
 def extract_description(corner_response, threshold=0.05, kernel=3):
+    """
+    Extract descriptor from corner response image
+
+    :param corner_response: corner response matrix
+    :param threshold: only corner response > 'max_corner_response*threshold' will be extracted
+    :param kernel: descriptor's window size, the descriptor will be kernel^2 dimension vector
+    :return: A pair of (descriptors, positions)
+    """
     height, width = corner_response.shape
 
     # Reduce corner
@@ -114,30 +105,25 @@ def extract_description(corner_response, threshold=0.05, kernel=3):
     return feature_descriptions[1:], feature_positions
 
 
-"""
-Matching two groups of descriptors
-
-Args:
-    descriptor1:
-    descriptor2:
-    feature_position1: descriptor1's corresponded position
-    feature_position2: descriptor2's corresponded position
-    pool: for multiprocessing
-    y_range: restrict only to match y2-y_range < y < y2+y_range
-
-Returns:
-    matched position pairs, it is a Nx2x2 matrix
-"""
-
-
 def matching(descriptor1, descriptor2, feature_position1, feature_position2, pool, y_range=10):
+    """
+    Matching two groups of descriptors
+
+    :param descriptor1:
+    :param descriptor2:
+    :param feature_position1: descriptor1's corresponded position
+    :param feature_position2: descriptor2's corresponded position
+    :param pool: for multiprocessing
+    :param y_range: restrict only to match y2-y_range < y < y2+y_range
+    :return: matched position pairs, it is a Nx2x2 matrix
+    """
     task_number = 32
 
     partition_descriptors = np.array_split(descriptor1, task_number)
     partition_positions = np.array_split(feature_position1, task_number)
 
-    sub_tasks = [(partition_descriptors[i], descriptor2, partition_positions[i], feature_position2, y_range) for i in
-                 range(task_number)]
+    sub_tasks = [(partition_descriptors[i], descriptor2, partition_positions[i], feature_position2, y_range)
+                 for i in range(task_number)]
     results = pool.starmap(compute_match, sub_tasks)
 
     matched_pairs = []
@@ -194,22 +180,15 @@ def compute_match(descriptor1, descriptor2, feature_position1, feature_position2
     return refined_matched_pairs
 
 
-"""
-Find best shift using RANSAC
-
-Args:
-    matched_pairs: matched pairs of feature's positions, its an Nx2x2 matrix
-    prev_shift: previous shift, for checking shift direction.
-
-Returns:
-    Best shift [y x]. ex. [4 234]
-
-Raise:
-    ValueError: Shift direction NOT same as previous shift.
-"""
-
-
 def ransac(matched_pairs, prev_shift):
+    """
+    Find best matches using RANSAC
+
+    :param matched_pairs: matched pairs of feature's positions, its an Nx2x2 matrix
+    :param prev_shift: previous shift, for checking shift direction.
+    :return: Best shift [y x]. ex. [4 234]
+    :raise: ValueError: Shift direction NOT same as previous shift.
+    """
     matched_pairs = np.asarray(matched_pairs)
 
     use_random = True if len(matched_pairs) > RANSAC_K else False
@@ -247,22 +226,17 @@ def ransac(matched_pairs, prev_shift):
     return best_shift
 
 
-"""
-Stitch two image with blending.
-
-Args:
-    img1: first image
-    img2: second image
-    shift: the relative position between img1 and img2
-    pool: for multiprocessing
-    blending: using blending or not
-
-Returns:
-    A stitched image
-"""
-
-
 def stitching(img1, img2, shift, pool, blending=True):
+    """
+    Stitch two image with blending.
+
+    :param img1: first image
+    :param img2: second image
+    :param shift: the relative position between img1 and img2
+    :param pool: for multiprocessing
+    :param blending: using blending or not
+    :return: A stitched image
+    """
     padding = [
         (shift[0], 0) if shift[0] > 0 else (0, -shift[0]),
         (shift[1], 0) if shift[1] > 0 else (0, -shift[1]),
@@ -272,7 +246,7 @@ def stitching(img1, img2, shift, pool, blending=True):
 
     # cut out unnecessary region
     split = img2.shape[1] + abs(shift[1])
-    splited = shifted_img1[:, split:] if shift[1] > 0 else shifted_img1[:, :-split]
+    splitted = shifted_img1[:, split:] if shift[1] > 0 else shifted_img1[:, :-split]
     shifted_img1 = shifted_img1[:, :split] if shift[1] > 0 else shifted_img1[:, -split:]
 
     h1, w1, _ = shifted_img1.shape
@@ -293,7 +267,7 @@ def stitching(img1, img2, shift, pool, blending=True):
         tasks = [(shifted_img1[y], shifted_img2[y], seam_x, ALPHA_BLEND_WINDOW, direction) for y in range(h1)]
         shifted_img1 = pool.starmap(alpha_blend, tasks)
         shifted_img1 = np.asarray(shifted_img1)
-        shifted_img1 = np.concatenate((shifted_img1, splited) if shift[1] > 0 else (splited, shifted_img1), axis=1)
+        shifted_img1 = np.concatenate((shifted_img1, splitted) if shift[1] > 0 else (splitted, shifted_img1), axis=1)
     else:
         raise ValueError('I did not implement "blending=False" ^_^')
 
@@ -320,19 +294,14 @@ def alpha_blend(row1, row2, seam_x, window, direction='left'):
     return new_row
 
 
-"""
-End to end alignment
-
-Args:
-    img: panoramas image
-    shifts: all shifts for each image in panoramas
-
-Returns:
-    A image that fixed the y-asix shift error
-"""
-
-
 def end2end_align(img, shifts):
+    """
+    End to end alignment
+
+    :param img: panoramas image
+    :param shifts: all shifts for each image in panoramas
+    :return: A image that fixed the y-axis shift error
+    """
     sum_y, sum_x = np.sum(shifts, axis=0)
 
     y_shift = np.abs(sum_y)
@@ -350,18 +319,13 @@ def end2end_align(img, shifts):
     return aligned
 
 
-"""
-Crop the black border in image
-
-Args:
-    img: a panoramas image
-
-Returns:
-    Cropped image
-"""
-
-
 def crop(img):
+    """
+    Crop the black border in image
+
+    :param img: a panoramas image
+    :return: Cropped image
+    """
     _, thresh = cv2.threshold(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)
     upper, lower = [-1, -1]
 
@@ -421,7 +385,7 @@ def manual_main(file_names, focal_lengths):
 
         args.append((img, focal))
 
-    cylinder_img_list = pool.starmap(FocalCalculator.FocalCalculator.cylindrical_projection, args)
+    cylinder_img_list = pool.starmap(warpers.cylindrical_warp_with_focal, args)
 
     _, img_width, _ = img_list[0].shape
     stitched_image = cylinder_img_list[0].copy()
