@@ -2,7 +2,38 @@
 import math
 import numpy as np
 import cv2 as cv
+from scipy.interpolate import griddata
+
 from libpano.ImageCropper import ImageCropper
+from libpano import Config
+
+
+def interpolate_image(image, mask):
+    """
+    Interpolate an image and its mask after warping
+    This should be called only when it is needed, as it takes too long
+    :param image: image array
+    :param mask: mask array
+    :return: (image, mask) interpolated
+    """
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    indices = np.where(gray != 0)
+
+    nx, ny = image.shape[1], image.shape[0]
+    x, y = np.meshgrid(np.arange(0, nx, 1), np.arange(0, ny, 1))
+
+    samples = image[indices]
+    int_im = griddata(indices, samples, (y, x))
+
+    blurred_mask = cv.GaussianBlur(mask, (23, 23), 0, 0)
+    _, blurred_mask = cv.threshold(cv.cvtColor(blurred_mask, cv.COLOR_BGR2GRAY), 1, 255, cv.THRESH_BINARY)
+
+    final_mask = cv.cvtColor(blurred_mask, cv.COLOR_GRAY2BGR)
+    final_image = int_im * (final_mask / 255)
+
+    del samples, int_im, blurred_mask
+
+    return final_image, final_mask
 
 
 def spherical_warp(image, pitch, metrics):
@@ -85,7 +116,6 @@ def spherical_warp(image, pitch, metrics):
 
     # Mapping image frame into spherical space
     #
-    # TODO: interpolation for near-pole areas(arctic and antarctic)
 
     # convert radian coordinates into pixel coordinates
     map_x = np.mod(lon, 1) * pano_width
@@ -96,6 +126,7 @@ def spherical_warp(image, pitch, metrics):
 
     # flatten image and copy data
     flat_idx = map_y * pano_width + map_x
+    del image_map, lat, lon, map_x, map_y
 
     warped = np.zeros((pano_height, pano_width, pano_channel), np.float)
     warped = np.reshape(warped, [-1, pano_channel])
@@ -111,12 +142,21 @@ def spherical_warp(image, pitch, metrics):
     # reshape into their original shape
     warped = np.reshape(warped, [pano_height, pano_width, pano_channel]).astype(np.uint8)
     mask_warped = np.reshape(mask_warped, [pano_height, pano_width, pano_channel]).astype(np.uint8)
+    # warped[others_dest] = flat_img[others_src]
 
     # crop images
     image_cropper = ImageCropper(warped, max_border_size=0)
-    mask_cropper = ImageCropper(mask_warped, max_border_size=0)
+    warped = image_cropper.crop()
 
-    return image_cropper.crop(), mask_cropper.crop()
+    mask_cropper = ImageCropper(mask_warped, max_border_size=0)
+    mask_warped = mask_cropper.crop()
+
+    del image, flat_img, mask_img
+
+    if abs(pitch) <= Config.min_pitch_needs_interpolation:
+        return warped, mask_warped
+
+    return interpolate_image(warped, mask_warped)
 
 
 def cylindrical_warp_with_focal(img, focal_length):
