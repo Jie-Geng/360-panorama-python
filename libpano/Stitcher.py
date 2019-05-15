@@ -28,6 +28,8 @@ class Stitcher:
 
         self.blender = cv.detail_MultiBandBlender()
         self.seam_finder = cv.detail_GraphCutSeamFinder("COST_COLOR")
+        self.compensator = cv.detail_ChannelsCompensator(1)
+
         self.corners = []
         self.sizes = []
 
@@ -102,6 +104,10 @@ class Stitcher:
             self.seam_masks.append(umat_mask.get())
 
     def blend_frames(self):
+        self.compensator.feed(corners=self.corners,
+                              images=[frame.contents for frame in self.frames],
+                              masks=[frame.mask for frame in self.frames])
+
         self.blender.setNumBands((np.log(Config.frame_margin)/np.log(2.) - 1.).astype(np.int))
 
         dest_size = cv.detail.resultRoi(corners=self.corners,
@@ -113,6 +119,7 @@ class Stitcher:
             seam_mask = cv.resize(seam_mask, (frame.mask.shape[1], frame.mask.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
             mask = cv.bitwise_and(seam_mask, frame.mask)
 
+            self.compensator.apply(idx, self.corners[idx], frame.contents, frame.mask)
             self.blender.feed(cv.UMat(frame.contents), mask, self.corners[idx])
 
         result = None

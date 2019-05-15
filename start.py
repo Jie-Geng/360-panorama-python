@@ -1,15 +1,8 @@
 import argparse
-import os
-import shutil
 import cv2 as cv
 from libpano import MetaData
-from libpano import Preprocess
 from libpano import Stitcher
-from libpano import Config
 from libpano import utils
-from libpano import FocalCalculator
-
-from libpano import manual
 
 parser = argparse.ArgumentParser(prog='start.py', description='my panorama stitch program')
 parser.add_argument('folder', nargs='+', help='folder containing files to stitch', type=str)
