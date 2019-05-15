@@ -11,8 +11,8 @@ from libpano import ImageFrame
 
 
 def preprocess_frame(args):
-    frame, metrics = args
-    frame.preprocess_image(1, metrics)
+    frame, scale, metrics = args
+    frame.preprocess_image(scale, metrics)
 
     return frame
 
@@ -57,7 +57,19 @@ class Stitcher:
 
         # Do it on every core.
         pool = Pool(processes=None)
-        frames = pool.map(preprocess_frame, [(frame, self.metrics) for frame in self.frames])
+
+        # prepare arg
+        args = []
+        for frame in self.frames:
+            scale = 1.0
+
+            if not Config.order_warp_first:
+                # calculate the resize scale
+                scale = Config.internal_panorama_width / self.metrics.PW
+
+            args.append((frame, scale, self.metrics))
+
+        frames = pool.map(preprocess_frame, args)
         self.frames = frames
 
     def position_frames(self):

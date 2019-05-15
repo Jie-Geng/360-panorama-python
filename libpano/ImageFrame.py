@@ -4,6 +4,7 @@ import imutils
 
 from libpano.ImageCropper import ImageCropper
 from libpano import warpers
+from libpano import Config
 
 
 class ImageFrame:
@@ -46,15 +47,22 @@ class ImageFrame:
         # resize image to the original size
         self.contents = cv.resize(self.contents, (self.width, self.height), interpolation=cv.INTER_LINEAR_EXACT)
 
-        # warp it
-        self.contents, self.mask = warpers.spherical_warp(self.contents, self.pitch, metrics)
-        self.height = self.contents.shape[0]
-        self.width = self.contents.shape[1]
+        # if warp first, warp frame
+        if Config.order_warp_first:
 
-        # crop too wide images
-        if self.width > 1000:
-            x = int((self.width - 1000) / 2)
-            self.crop_rect(x, 0, 1000, self.height)
+            # warp it
+            self.contents, self.mask = warpers.spherical_warp(self.contents, self.pitch, metrics)
+            self.height = self.contents.shape[0]
+            self.width = self.contents.shape[1]
+
+            # crop too wide images
+            if self.width > 1000:
+                x = int((self.width - 1000) / 2)
+                self.crop_rect(x, 0, 1000, self.height)
+        else:
+            # Create the mask only. Warping would be done in the positioning stage
+            self.mask = np.zeros_like(self.contents, np.uint8)
+            self.mask[:, :, :] = 255
 
         # calculate the new size
         height = int(self.height * scale)

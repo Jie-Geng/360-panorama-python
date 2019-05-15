@@ -1,0 +1,6 @@
+opencv-python==4.1.0.25
+numpy==1.16.3
+scipy==1.2.1
+matplotlib==3.0.3
+imutils==0.5.2
+pandas==0.24.2

@@ -16,3 +16,6 @@ internal_panorama_height = 2048
 
 # mega pixel for seam finding
 smp = 0.1e6
+
+# the order of stitching pipeline
+order_warp_first = True
