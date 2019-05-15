@@ -13,3 +13,6 @@ min_pitch_needs_interpolation = 0.75
 # internal panorama size
 internal_panorama_width = 4096
 internal_panorama_height = 2048
+
+# mega pixel for seam finding
+smp = 0.1e6

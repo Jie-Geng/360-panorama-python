@@ -23,7 +23,6 @@ __doc__ = '\n' + parser.format_help()
 
 def main():
     all_timer = utils.Timer()
-    timer = utils.Timer()
 
     args = parser.parse_args()
     base_folder = args.folder[0]
@@ -34,24 +33,29 @@ def main():
     meta = MetaData.MetaData(base_folder)
 
     stitcher = Stitcher.Stitcher(base_folder, meta)
-    print('- Load and preprocess images..')
+    timer = utils.Timer()
+    print('- Load and preprocess images.....', end='', flush=True)
     stitcher.load_and_preprocess()
-    print('- Positioning images..')
-    stitcher.position_frames()
+    print('{:.3f} seconds'.format(timer.end()))
 
-    if Config.debug:
-        print('Finished in {:.2f} seconds'.format(timer.end()))
+    print('- Positioning images.....', end='')
+    timer.begin()
+    stitcher.position_frames()
+    print('{:.3f} seconds'.format(timer.end()))
+
+    # seam finding
+    print('- Finding seams.....', end='', flush=True)
+    timer.begin()
+    stitcher.seam_find()
+    print('{:.3f} seconds'.format(timer.end()))
 
     # blending images
-    if Config.debug:
-        timer.begin()
-        print('Blending images...')
-
+    print('- Blending images.....', end='', flush=True)
+    timer.begin()
     output = stitcher.blend_frames()
-    cv.imwrite(output_fn, output)
+    print('{:.3f} seconds'.format(timer.end()))
 
-    if Config.debug:
-        print('Finished in {:.2f} seconds'.format(timer.end()))
+    cv.imwrite(output_fn, output)
 
     print('\nDone in {:.2f} seconds'.format(all_timer.end()))
 

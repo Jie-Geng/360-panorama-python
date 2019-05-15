@@ -13,7 +13,6 @@ from libpano import ImageFrame
 def preprocess_frame(args):
     frame, metrics = args
     frame.preprocess_image(1, metrics)
-    print(frame.mask.shape)
 
     return frame
 
@@ -31,6 +30,8 @@ class Stitcher:
         self.seam_finder = cv.detail_GraphCutSeamFinder("COST_COLOR")
         self.corners = []
         self.sizes = []
+
+        self.seam_masks = []
 
     def load_and_preprocess(self):
 
@@ -63,7 +64,6 @@ class Stitcher:
         ppr_y = Config.internal_panorama_height / pi
 
         for frame in self.frames:
-            print(frame.filename, frame.contents.shape)
             x = frame.yaw * ppr_x
             y = frame.pitch * ppr_y
 
@@ -71,6 +71,35 @@ class Stitcher:
             y -= (frame.height / 2)
 
             self.corners.append((int(x), int(y)))
+
+    def seam_find(self):
+        seam_finder = cv.detail_DpSeamFinder("COLOR_GRAD")
+
+        seam_images = []
+        seam_corners = []
+        self.seam_masks = []
+
+        seam_scale = min(1.0, np.sqrt(Config.smp / (Config.internal_panorama_width * Config.internal_panorama_width)))
+
+        for idx, frame in enumerate(self.frames):
+            img = cv.resize(frame.contents, dsize=None,
+                            fx=seam_scale,
+                            fy=seam_scale,
+                            interpolation=cv.INTER_LINEAR_EXACT)
+            seam_images.append(img.astype(np.float32))
+
+            mask = cv.resize(frame.mask, dsize=None, fx=seam_scale,
+                             fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
+            self.seam_masks.append(mask)
+
+            seam_corners.append((int(self.corners[idx][0] * seam_scale),
+                                 int(self.corners[idx][1] * seam_scale)))
+
+        umat_masks = seam_finder.find(seam_images, seam_corners, self.seam_masks)
+
+        self.seam_masks = []
+        for umat_mask in umat_masks:
+            self.seam_masks.append(umat_mask.get())
 
     def blend_frames(self):
         self.blender.setNumBands((np.log(Config.frame_margin)/np.log(2.) - 1.).astype(np.int))
@@ -80,9 +109,11 @@ class Stitcher:
         self.blender.prepare(dest_size)
 
         for idx, frame in enumerate(self.frames):
-            print('   ', frame.filename)
-            print(frame.mask.shape)
-            self.blender.feed(cv.UMat(frame.contents), frame.mask, self.corners[idx])
+            seam_mask = cv.dilate(self.seam_masks[idx], None)
+            seam_mask = cv.resize(seam_mask, (frame.mask.shape[1], frame.mask.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
+            mask = cv.bitwise_and(seam_mask, frame.mask)
+
+            self.blender.feed(cv.UMat(frame.contents), mask, self.corners[idx])
 
         result = None
         result_mask = None
