@@ -1,8 +1,8 @@
 import numpy as np
 import cv2 as cv
 import imutils
+import os
 
-from libpano.ImageCropper import ImageCropper
 from libpano import warpers
 from libpano import Config
 
@@ -13,13 +13,15 @@ class ImageFrame:
     Class ImageFrame represents a piece of mosaic image
     """
 
-    def __init__(self, filename, pitch, yaw, roll):
+    def __init__(self, row, col, filename, pitch, yaw, roll):
         self.width = 0
         self.height = 0
 
         self.contents = None
         self.mask = None
 
+        self.row = row
+        self.col = col
         self.filename = filename
         self.pitch = pitch
         self.yaw = yaw
@@ -34,18 +36,8 @@ class ImageFrame:
         # self.mask = np.zeros((self.height, self.width), np.uint8)
         # self.mask[:, :] = 255
 
-    def preprocess_image(self, scale, metrics):
+    def preprocess_image(self, scale, metrics, temp_folder):
         self.load_image()
-
-        # rotate
-        self.contents = imutils.rotate_bound(self.contents, self.roll)
-
-        # crop image boundaries come from rotation
-        cropper = ImageCropper(self.contents)
-        self.contents = cropper.crop()
-
-        # resize image to the original size
-        self.contents = cv.resize(self.contents, (self.width, self.height), interpolation=cv.INTER_LINEAR_EXACT)
 
         # if warp first, warp frame
         if Config.order_warp_first:
@@ -64,7 +56,7 @@ class ImageFrame:
             self.mask = np.zeros_like(self.contents, np.uint8)
             self.mask[:, :, :] = 255
 
-        # calculate the new size
+        # resize
         height = int(self.height * scale)
         width = int(self.width * scale)
 
@@ -72,8 +64,18 @@ class ImageFrame:
         self.mask = cv.resize(self.mask, (width, height), interpolation=cv.INTER_LINEAR_EXACT)
         self.mask = cv.cvtColor(self.mask, cv.COLOR_BGR2GRAY)
 
-        self.height = height
-        self.width = width
+        # rotate
+        self.contents = imutils.rotate_bound(self.contents, self.roll)
+        self.mask = imutils.rotate_bound(self.mask, self.roll)
+
+        self.height = self.contents.shape[0]
+        self.width = self.contents.shape[1]
+
+        # save
+        file_name = 'warped-{}-{}.jpg'.format(self.row, self.col)
+        cv.imwrite(os.path.join(temp_folder, file_name), self.contents)
+        file_name = 'mask-{}-{}.jpg'.format(self.row, self.col)
+        cv.imwrite(os.path.join(temp_folder, file_name), self.mask)
 
     def expand_size(self, new_width, new_height, center=True):
         big = np.zeros((new_height, new_width, 3), np.uint8)

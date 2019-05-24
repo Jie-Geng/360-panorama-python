@@ -47,6 +47,18 @@ class MetaData:
         # load json file and sort data into a pandas dataframe
         self.get_refined_dataframe()
 
+    def meta_to_string(self):
+        string = ''
+        for idx, row in self.grid_data.iterrows():
+            string += str(row.row)
+            string += ' '
+            string += str(row.col)
+            string += ' '
+            string += row.uri
+            string += '\n'
+
+        return string
+
     def load_panorama_metrics(self, image_path):
         self.image_path = image_path
 

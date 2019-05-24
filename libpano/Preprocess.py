@@ -23,13 +23,13 @@ def preprocess_resize(image_folder, temp_folder, meta, scale):
     :return: Nothing, because we save the processed images.
     """
     meta_data = meta.grid_data
-    # rows = meta_data.row.nunique()
-    cols = meta_data.col.nunique()
+    n_rows = meta_data.row.nunique()
+    n_cols = meta_data.col.nunique()
 
     # preparing arguments for multiprocess pool.
     args = []
-    for row in range(Config.start_row, Config.end_row):
-        for col in range(cols):
+    for row in range(n_rows):
+        for col in range(n_cols):
             item = meta_data[(meta_data.row == row) & (meta_data.col == col)]
             fn = item.uri.values[0]
             roll = item.roll.values[0]
@@ -95,14 +95,14 @@ def preprocess_warp(image_folder, meta):
 
     meta_data = meta.grid_data
     metrics = meta.metrics
-    # rows = meta_data.row.nunique()
-    cols = meta_data.col.nunique()
+    n_rows = meta_data.row.nunique()
+    n_cols = meta_data.col.nunique()
 
     args = []
 
     # generate parameters for pooling
-    for row in range(Config.start_row, Config.end_row):
-        for col in range(cols):
+    for row in range(n_rows):
+        for col in range(n_cols):
             item = meta_data[(meta_data.row == row) & (meta_data.col == col)]
             fn = item.uri.values[0]
             arg = (

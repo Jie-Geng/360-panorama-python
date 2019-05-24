@@ -1,8 +1,6 @@
 debug = True
 
 frame_margin = 60
-start_row = 0
-end_row = 5
 
 # vertical angle of ROI
 max_vertical_angle = 1.483  # -85 ~ 85 degree vertically
@@ -15,7 +13,14 @@ internal_panorama_width = 4096
 internal_panorama_height = 2048
 
 # mega pixel for seam finding
-smp = 0.1e6
+smp = 2e6
 
 # the order of stitching pipeline
 order_warp_first = True
+
+# file names
+meta_data_name = 'metadata.txt'
+prestitch_result_name = 'framedata'
+poststitch_input_name = 'framedata.all'
+
+only_main_frame = False
