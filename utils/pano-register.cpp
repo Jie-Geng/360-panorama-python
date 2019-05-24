@@ -725,8 +725,8 @@ int main(int argc, char* argv[])
     }
     LOGLN(" finished in " << (getTickCount() - stage_start_time)/getTickFrequency() << " seconds.");
 
-    
-    cout << "\nFINISHED in " << (getTickCount() - app_start_time)/getTickFrequency() << " seconds.\n\n";
+    LOGLN("");
+    cout << "  finished in " << (getTickCount() - app_start_time)/getTickFrequency() << " seconds.\n\n";
 
     return 0;
 

@@ -34,7 +34,7 @@ def main():
     ############################################
 
     meta = MetaData.MetaData(base_folder)
-    print("CAMERA METRICS:")
+    print('')
     print(meta.metrics)
 
     # non-processed rows
@@ -70,12 +70,12 @@ def main():
 
     # calculate image scale
     scale = math.sqrt(Config.internal_panorama_width / meta.metrics.PW)
-    print('scale={}'.format(scale))
+    # print('scale={}'.format(scale))
 
     ############################################
     # Stitch the mainframe panorama
     ############################################
-    print("\n\nRegistering....")
+    print("- Registering....")
     return_code = subprocess.call(['utils/pano-register',
                                    '--folder', base_folder,
                                    '--temp-folder', temp_folder,
@@ -87,7 +87,7 @@ def main():
         return -1
 
     if Config.mainframe_first:
-        print("\nComposing.....")
+        print("- Composing.....")
         return_code = subprocess.call(['utils/pano-composer',
                                        '--folder', temp_folder,
                                        '--config', Config.register_result_name,
@@ -120,7 +120,7 @@ def main():
     print('{:.3f} seconds'.format(timer.end()))
 
     if Config.mainframe_first:
-        print("\nComposing.....")
+        print("- Composing.....")
         raw_output_name = os.path.join(temp_folder, 'panorama.jpg')
         return_code = subprocess.call(['utils/pano-composer',
                                        '--folder', temp_folder,
@@ -153,7 +153,7 @@ def main():
     ############################################
     # Cropping, saving, removing temporary folder
     ############################################
-    print('- Positioning images.....', end='')
+    print('- Cropping and resizing.....', end='')
     timer.begin()
 
     height, width = output.shape[0], output.shape[1]
@@ -186,7 +186,7 @@ def main():
 
     print('{:.3f} seconds'.format(timer.end()))
 
-    print('\nDone in {:.2f} seconds'.format(all_timer.end()))
+    print('\nPanorama was created and stored as {} in {:.2f} seconds'.format(output_fn, all_timer.end()))
 
     return 0
 

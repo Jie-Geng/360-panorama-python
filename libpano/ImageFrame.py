@@ -5,6 +5,7 @@ import os
 
 from libpano import warpers
 from libpano import Config
+from libpano.ImageCropper import ImageCropper
 
 
 class ImageFrame:
@@ -39,6 +40,13 @@ class ImageFrame:
     def preprocess_image(self, scale, metrics, temp_folder):
         self.load_image()
 
+        # rotate
+        self.contents = imutils.rotate_bound(self.contents, self.roll)
+        cropper = ImageCropper(self.contents)
+        self.contents = cropper.crop()
+
+        self.contents = cv.resize(self.contents, (self.width, self.height), 0, 0, cv.INTER_LINEAR_EXACT)
+
         # if warp first, warp frame
         if Config.order_warp_first:
 
@@ -63,13 +71,6 @@ class ImageFrame:
         self.contents = cv.resize(self.contents, (width, height), interpolation=cv.INTER_LINEAR_EXACT)
         self.mask = cv.resize(self.mask, (width, height), interpolation=cv.INTER_LINEAR_EXACT)
         self.mask = cv.cvtColor(self.mask, cv.COLOR_BGR2GRAY)
-
-        # rotate
-        self.contents = imutils.rotate_bound(self.contents, self.roll)
-        self.mask = imutils.rotate_bound(self.mask, self.roll)
-
-        self.height = self.contents.shape[0]
-        self.width = self.contents.shape[1]
 
         # save
         file_name = 'warped-{}-{}.jpg'.format(self.row, self.col)

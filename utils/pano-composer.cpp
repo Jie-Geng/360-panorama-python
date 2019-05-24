@@ -45,7 +45,7 @@ typedef struct tag_MetaData{
 
 // constants
 #define BLEND_STRENGTH 5.0
-#define SEAM_SCALE 0.3
+#define SEAM_SCALE 0.07
 
 // config data
 vector<int> gv_row, gv_col, gv_x, gv_y;
@@ -139,7 +139,7 @@ static int parseCmdArgs(int argc, char** argv)
     if (argc == 1)
     {
         printUsage();
-        return -1;
+        return 1;
     }
  
     for (int i = 1; i < argc; ++i)
@@ -200,7 +200,8 @@ int main(int argc, char* argv[])
     int retval = parseCmdArgs(argc, argv);
     if (retval)
     {
-        MSGLN("\nERROR: Cannot parse parameters.\n");
+        if (retval < 0)
+            MSGLN("\nERROR: Cannot parse parameters.\n");
         return retval;
     }
 
@@ -294,11 +295,15 @@ int main(int argc, char* argv[])
     int64 stage_start_time = getTickCount();
     LOGLN("\n-COMPENSATING EXPOSURES...........");
 
+#if 0
+    Ptr<ExposureCompensator> compensator = ExposureCompensator::createDefault(ExposureCompensator::CHANNELS);
+#else
     Ptr<ExposureCompensator> compensator = ExposureCompensator::createDefault(ExposureCompensator::GAIN_BLOCKS);
     BlocksCompensator* bcompensator = dynamic_cast<BlocksCompensator*>(compensator.get());
     bcompensator->setNrFeeds(1);
     bcompensator->setNrGainsFilteringIterations(2);
     bcompensator->setBlockSize(32, 32);
+#endif    
     compensator->feed(seam_corners, seam_images, seam_masks);
 
     LOGLN(" FINISHED in " << (getTickCount() - stage_start_time)/getTickFrequency() << " seconds.");
@@ -353,7 +358,7 @@ int main(int argc, char* argv[])
     ////////////////////////////////////////////////////////////////////////
     // Post process
     ////////////////////////////////////////////////////////////////////////
-    MSGLN("FINISHED in " << (getTickCount() - app_start_time)/getTickFrequency() << " seconds.");
+    MSGLN("  finished in " << (getTickCount() - app_start_time)/getTickFrequency() << " seconds.");
 
     imwrite(gs_output, result);
 
