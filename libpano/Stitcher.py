@@ -239,13 +239,10 @@ class Stitcher:
         self.other_rows = target_rows
 
         # read prestitch result data
-        frame_file_name = os.path.join(self.temp_folder, Config.prestitch_result_name)
-        ps_result = pd.read_csv(frame_file_name, header=None, names=['row', 'col', 'x', 'y', 'width', 'height'])
+        frame_file_name = os.path.join(self.temp_folder, Config.register_result_name)
+        ps_result = pd.read_csv(frame_file_name, delimiter=' ', header=None,
+                                names=['row', 'col', 'x', 'y', 'width', 'height'])
 
-        # # for debug
-        # self.grid_data = ps_result
-        # return
-        #
         self.grid_data = pd.merge(self.meta, ps_result, on=['row', 'col'], how='outer')
 
         # fill the size data of the pre-positioned frames
@@ -273,19 +270,27 @@ class Stitcher:
         # infer cx, x, cy, and y
         self.position_infer_coordinates(target_rows)
 
-        # # for debug
-        # file_name = frame_file_name + '.before'
-        # self.grid_data.to_csv(file_name)
+        if Config.mainframe_first:
+            other_df = self.grid_data[self.grid_data.row.isin(target_rows)]
 
-        # mx = self.grid_data.x.min()
-        # self.grid_data.x = self.grid_data.x - mx
-        #
-        # my = self.grid_data.y.min()
-        # self.grid_data.y = self.grid_data.y - my
+            rows = other_df.row.values.tolist()
+            cols = other_df.col.values.tolist()
+            image_names = ['warped-{}-{}.jpg'.format(row, col) for row, col in zip(rows, cols)]
+            mask_names = ['mask-{}-{}.jpg'.format(row, col) for row, col in zip(rows, cols)]
+            x = other_df.x.values.tolist()
+            y = other_df.y.values.tolist()
 
-        # for debug
-        file_name = frame_file_name + '.all'
-        self.grid_data.to_csv(file_name, sep=' ', header=False)
+            frame_x = ps_result.x.min()
+            frame_y = ps_result.y.min()
+            image_names.insert(0, 'frame.jpg')
+            mask_names.insert(0, 'frame-mask.jpg')
+            x.insert(0, frame_x)
+            y.insert(0, frame_y)
+
+            compose_df = pd.DataFrame({'img_name': image_names, 'mask_name': mask_names, 'x': x, 'y': y})
+
+            file_name = os.path.join(self.temp_folder, Config.compose_config_name)
+            compose_df.to_csv(file_name, sep=' ', header=False, index=False)
 
     def seam_find(self):
         seam_finder = cv.detail_DpSeamFinder("COLOR_GRAD")

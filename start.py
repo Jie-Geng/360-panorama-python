@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import cv2 as cv
 import math
-import pandas as pd
 from libpano import MetaData
 from libpano import Stitcher
 from libpano import utils
@@ -73,33 +72,45 @@ def main():
     scale = math.sqrt(Config.internal_panorama_width / meta.metrics.PW)
     print('scale={}'.format(scale))
 
-    print("\n\nPrestitching....")
-    return_code = subprocess.call(['utils/prestitcher',
+    ############################################
+    # Stitch the mainframe panorama
+    ############################################
+    print("\n\nRegistering....")
+    return_code = subprocess.call(['utils/pano-register',
                                    '--folder', base_folder,
                                    '--temp-folder', temp_folder,
                                    '--meta', meta_file_name,
                                    '--scale', str(scale)])
 
     if return_code != 0:
-        print("Error in prestitching.")
+        print("Error in registering frame images.")
         return -1
+
+    if Config.mainframe_first:
+        print("\nComposing.....")
+        return_code = subprocess.call(['utils/pano-composer',
+                                       '--folder', temp_folder,
+                                       '--config', Config.register_result_name,
+                                       '--mode', 'frame',
+                                       '--output', os.path.join(temp_folder, 'frame.jpg')])
+
+        if return_code != 0:
+            print("Error in composing frame images.")
+            return -1
 
     ############################################
     # Transforming other rows(not-mainframe rows)
     ############################################
 
     # Calculate the scale done by prestitcher
-    psr_name = os.path.join(temp_folder, Config.prestitch_result_name)
-    psr_df = pd.read_csv(psr_name, header=0, names=['row', 'col' 'x', 'y', 'width', 'height'])
-    minimum_width = psr_df['width'].min()
-    other_scale = minimum_width / meta.metrics.FW
-    print('min_width={}, scale={}'.format(minimum_width, other_scale))
+    # psr_name = os.path.join(temp_folder, Config.register_result_name)
+    # psr_df = pd.read_csv(psr_name, header=0, delimiter=' ', names=['row', 'col' 'x', 'y', 'width', 'height'])
 
     # resizing, warping, and rotating
     stitcher = Stitcher.Stitcher(base_folder, temp_folder, meta)
 
     timer = utils.Timer()
-    print('- Load and preprocess images.....', end='', flush=True)
+    print('\n- Load and preprocess images.....', end='', flush=True)
     stitcher.load_and_preprocess(1.0, other_rows)
     print('{:.3f} seconds'.format(timer.end()))
 
@@ -108,22 +119,72 @@ def main():
     stitcher.position_frames(other_rows)
     print('{:.3f} seconds'.format(timer.end()))
 
-    # Now, we don't need frames any more
-    stitcher.frames = []
+    if Config.mainframe_first:
+        print("\nComposing.....")
+        raw_output_name = os.path.join(temp_folder, 'panorama.jpg')
+        return_code = subprocess.call(['utils/pano-composer',
+                                       '--folder', temp_folder,
+                                       '--config', Config.compose_config_name,
+                                       '--mode', 'full',
+                                       '--output', raw_output_name])
 
-    # seam finding
-    print('- Finding seams.....', end='', flush=True)
-    timer.begin()
-    stitcher.seam_find()
-    print('{:.3f} seconds'.format(timer.end()))
+        if return_code != 0:
+            print("Error in composing frame images.")
+            return -1
 
-    # blending images
-    print('- Blending images.....', end='', flush=True)
+        output = cv.imread(raw_output_name)
+
+    else:
+        # Now, we don't need frames any more
+        stitcher.frames = []
+
+        # seam finding
+        print('- Finding seams.....', end='', flush=True)
+        timer.begin()
+        stitcher.seam_find()
+        print('{:.3f} seconds'.format(timer.end()))
+
+        # blending images
+        print('- Blending images.....', end='', flush=True)
+        timer.begin()
+        output = stitcher.blend_frames()
+        print('{:.3f} seconds'.format(timer.end()))
+
+    ############################################
+    # Cropping, saving, removing temporary folder
+    ############################################
+    print('- Positioning images.....', end='')
     timer.begin()
-    output = stitcher.blend_frames()
-    print('{:.3f} seconds'.format(timer.end()))
+
+    height, width = output.shape[0], output.shape[1]
+    cy = height // 2
+
+    gray = cv.cvtColor(output, cv.COLOR_BGR2GRAY)
+    middle_line = gray[cy, :]
+
+    left = 0
+    while middle_line[left] == 0:
+        left += 1
+
+    right = width - 1
+    while middle_line[right] == 0:
+        right -= 1
+
+    roi_width = right - left
+    roi_height = roi_width // 2 - 200
+    top = (height - roi_height) // 2
+
+    cropped = output[top:(top + roi_height), left:(left + roi_width), :]
+    output = cv.resize(cropped, (pano_width, pano_height), 0, 0, cv.INTER_LINEAR_EXACT)
 
     cv.imwrite(output_fn, output)
+
+    try:
+        shutil.rmtree(temp_folder)
+    except OSError:
+        pass
+
+    print('{:.3f} seconds'.format(timer.end()))
 
     print('\nDone in {:.2f} seconds'.format(all_timer.end()))
 
